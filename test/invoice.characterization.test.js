@@ -120,8 +120,7 @@ function assertFigures(order, expected) {
   })), expected.invoice.lines);
 }
 
-// Correct invoice values after the fix: ₹918.00 taxable, ₹45.90 GST, ₹963.90 total.
-test('CURRENT BEHAVIOUR: invoice applies 18% GST before the SAVE10 discount (#1002)', () => {
+test('invoice matches checkout GST and SAVE10 discount (#1002)', () => {
   const order = orders.find((item) => item.id === 1002);
   assertFigures(order, {
     checkout: {
@@ -132,17 +131,16 @@ test('CURRENT BEHAVIOUR: invoice applies 18% GST before the SAVE10 discount (#10
       ]
     },
     invoice: {
-      subtotal: 1020, discount: 120.36, taxable: 899.64, tax: 183.6, total: 1083.24,
+      subtotal: 1020, discount: 102, taxable: 918, tax: 45.9, total: 963.9,
       lines: [
-        { gstPercent: 18, line: 640, lineTax: 115.2 },
-        { gstPercent: 18, line: 380, lineTax: 68.4 }
+        { gstPercent: 5, line: 640, lineTax: 28.8 },
+        { gstPercent: 5, line: 380, lineTax: 17.1 }
       ]
     }
   });
 });
 
-// Correct invoice values after the fix: ₹2,090.00 taxable, ₹104.50 GST, ₹2,194.50 total.
-test('CURRENT BEHAVIOUR: invoice ignores SAVE10 ₹150 discount cap (#1004)', () => {
+test('invoice respects SAVE10 ₹150 discount cap (#1004)', () => {
   const order = orders.find((item) => item.id === 1004);
   assertFigures(order, {
     checkout: {
@@ -150,14 +148,13 @@ test('CURRENT BEHAVIOUR: invoice ignores SAVE10 ₹150 discount cap (#1004)', ()
       lines: [{ gstPercent: 5, gross: 2240, taxable: 2090, tax: 104.5 }]
     },
     invoice: {
-      subtotal: 2240, discount: 264.32, taxable: 1975.68, tax: 403.2, total: 2378.88,
-      lines: [{ gstPercent: 18, line: 2240, lineTax: 403.2 }]
+      subtotal: 2240, discount: 150, taxable: 2090, tax: 104.5, total: 2194.5,
+      lines: [{ gstPercent: 5, line: 2240, lineTax: 104.5 }]
     }
   });
 });
 
-// Correct invoice values after the fix: ₹610.00 taxable, ₹66.90 GST, ₹676.90 total.
-test('CURRENT BEHAVIOUR: invoice uses 18% for the 5% HSN item (#1001)', () => {
+test('invoice applies each HSN rate (#1001)', () => {
   const order = orders.find((item) => item.id === 1001);
   assertFigures(order, {
     checkout: {
@@ -168,17 +165,16 @@ test('CURRENT BEHAVIOUR: invoice uses 18% for the 5% HSN item (#1001)', () => {
       ]
     },
     invoice: {
-      subtotal: 610, discount: 0, taxable: 610, tax: 109.8, total: 719.8,
+      subtotal: 610, discount: 0, taxable: 610, tax: 66.9, total: 676.9,
       lines: [
         { gstPercent: 18, line: 280, lineTax: 50.4 },
-        { gstPercent: 18, line: 330, lineTax: 59.4 }
+        { gstPercent: 5, line: 330, lineTax: 16.5 }
       ]
     }
   });
 });
 
-// Correct invoice values after the fix: ₹1,280.00 taxable, ₹127.00 GST, ₹1,407.00 total.
-test('CURRENT BEHAVIOUR: invoice uses 18% for 5% and 12% HSN items (#1007)', () => {
+test('invoice applies 12% and 5% HSN rates (#1007)', () => {
   const order = orders.find((item) => item.id === 1007);
   assertFigures(order, {
     checkout: {
@@ -189,10 +185,10 @@ test('CURRENT BEHAVIOUR: invoice uses 18% for 5% and 12% HSN items (#1007)', () 
       ]
     },
     invoice: {
-      subtotal: 1280, discount: 0, taxable: 1280, tax: 230.4, total: 1510.4,
+      subtotal: 1280, discount: 0, taxable: 1280, tax: 127, total: 1407,
       lines: [
-        { gstPercent: 18, line: 900, lineTax: 162 },
-        { gstPercent: 18, line: 380, lineTax: 68.4 }
+        { gstPercent: 12, line: 900, lineTax: 108 },
+        { gstPercent: 5, line: 380, lineTax: 19 }
       ]
     }
   });
@@ -218,17 +214,17 @@ test('checkout and invoice: #1008 all-18% order totals match', () => {
   });
 });
 
-test('GST audit: flags #1001, #1002, #1004 and #1007; matches #1008', () => {
+test('GST audit: reports no mismatches after invoice matches checkout', () => {
   const audit = reports.getGstReconciliation({ orders });
   const matchedById = Object.fromEntries(audit.rows.map((row) => [row.orderId, row.matched]));
 
   assert.equal(audit.totalChecked, 5);
-  assert.equal(audit.mismatchCount, 4);
+  assert.equal(audit.mismatchCount, 0);
   assert.deepEqual(matchedById, {
-    1001: false,
-    1002: false,
-    1004: false,
-    1007: false,
+    1001: true,
+    1002: true,
+    1004: true,
+    1007: true,
     1008: true
   });
 });
